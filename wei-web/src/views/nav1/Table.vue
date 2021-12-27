@@ -60,7 +60,6 @@
       >
       <el-pagination
         layout="prev, pager, next"
-        @current-change="handleCurrentChange"
         :page-size="20"
         :total="total"
         style="float: right"
@@ -80,31 +79,28 @@
         :rules="editFormRules"
         ref="editForm"
       >
-        <el-form-item label="姓名" prop="mname">
-          <el-input v-model="editForm.name" auto-complete="off"></el-input>
+        <el-form-item label="药物名" prop="mname">
+          <el-input v-model="editForm.mname" auto-complete="off"></el-input>
         </el-form-item>
-        <el-form-item label="性别">
-          <el-radio-group v-model="editForm.sex">
-            <el-radio class="radio" :label="1">男</el-radio>
-            <el-radio class="radio" :label="0">女</el-radio>
-          </el-radio-group>
+        <el-form-item label="保质期">
+          <el-input v-model="editForm.mbaoday" auto-complete="off"></el-input>
         </el-form-item>
-        <el-form-item label="年龄">
+        <el-form-item label="数量">
           <el-input-number
-            v-model="editForm.age"
+            v-model="editForm.mnum"
             :min="0"
             :max="200"
           ></el-input-number>
         </el-form-item>
-        <el-form-item label="生日">
+        <el-form-item label="进货日期">
           <el-date-picker
             type="date"
             placeholder="选择日期"
-            v-model="editForm.birth"
+            v-model="editForm.mruday"
           ></el-date-picker>
         </el-form-item>
-        <el-form-item label="地址">
-          <el-input type="textarea" v-model="editForm.addr"></el-input>
+        <el-form-item label="进货地点">
+          <el-input type="textarea" v-model="editForm.mhome"></el-input>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -199,11 +195,11 @@ export default {
       //编辑界面数据
       editForm: {
         id: 0,
-        name: "",
-        sex: -1,
-        age: 0,
-        birth: "",
-        addr: "",
+        mname: "",
+        mbaoday: "",
+        mnum: 0,
+        mruday: "",
+        mhome: "",
       },
 
       addFormVisible: false, //新增界面是否显示
@@ -213,23 +209,15 @@ export default {
       },
       //新增界面数据
       addForm: {
-        name: "",
-        sex: -1,
-        age: 0,
-        birth: "",
-        addr: "",
+        mname: "",
+        mbaoday: "",
+        mnum: 0,
+        mruday: "",
+        mhome: "",
       },
     };
   },
   methods: {
-    //性别显示转换
-    formatSex: function (row, column) {
-      return row.sex == 1 ? "男" : row.sex == 0 ? "女" : "未知";
-    },
-    handleCurrentChange(val) {
-      this.page = val;
-      this.getmeds();
-    },
     //获取药品列表
     getmeds() {
       let para = {
@@ -253,13 +241,13 @@ export default {
         .then(() => {
           this.listLoading = true;
           //NProgress.start();
-          let para = { id: row.id };
-          removeUser(para).then((res) => {
+          let para = { mid: `'${row.mid}'` };
+          axios.post(baseapi.med_del, para).then((res) => {
+            console.log("res", res);
             this.listLoading = false;
-            //NProgress.done();
             this.$message({
-              message: "删除成功",
-              type: "success",
+              message: res.data,
+              type: "info",
             });
             this.getmeds();
           });
@@ -276,10 +264,10 @@ export default {
       this.addFormVisible = true;
       this.addForm = {
         name: "",
-        sex: -1,
+        mbaoday: "",
         age: 0,
-        birth: "",
-        addr: "",
+        mruday: "",
+        mhome: "",
       };
     },
     //编辑
@@ -290,19 +278,17 @@ export default {
             this.editLoading = true;
             //NProgress.start();
             let para = Object.assign({}, this.editForm);
-            para.birth =
-              !para.birth || para.birth == ""
+            para.mruday =
+              !para.mruday || para.mruday == ""
                 ? ""
-                : util.formatDate.format(new Date(para.birth), "yyyy-MM-dd");
-            editUser(para).then((res) => {
+                : util.formatDate.format(new Date(para.mruday), "yyyy-MM-dd");
+            axios.post(baseapi.med_ch, para).then((res) => {
+              console.log("res", res);
               this.editLoading = false;
-              //NProgress.done();
               this.$message({
-                message: "提交成功",
-                type: "success",
+                message: res.data,
+                type: "info",
               });
-              this.$refs["editForm"].resetFields();
-              this.editFormVisible = false;
               this.getmeds();
             });
           });
@@ -321,24 +307,14 @@ export default {
               !para.mruday || para.mruday == ""
                 ? ""
                 : util.formatDate.format(new Date(para.mruday), "yyyy-MM-dd");
-            // addUser(para).then((res) => {
-            //   this.addLoading = false;
-            //   //NProgress.done();
-            //   this.$message({
-            //     message: "提交成功",
-            //     type: "success",
-            //   });
-            //   this.$refs["addForm"].resetFields();
-            //   this.addFormVisible = false;
-            //   this.getmeds();
-            // });
             axios.post(baseapi.med_add, para).then((res) => {
               console.log("res", res);
               this.addLoading = false;
               this.$message({
                 message: res.data,
-                type: "success",
+                type: "info",
               });
+              this.getmeds();
             });
           });
         }
@@ -349,20 +325,21 @@ export default {
     },
     //批量删除
     batchRemove: function () {
-      var ids = this.sels.map((item) => item.id).toString();
+      var ids = this.sels.map((item) => `'${item.mid}'`).toString();
+      console.log(ids);
       this.$confirm("确认删除选中记录吗？", "提示", {
         type: "warning",
       })
         .then(() => {
           this.listLoading = true;
           //NProgress.start();
-          let para = { ids: ids };
-          batchRemoveUser(para).then((res) => {
+          let para = { mid: ids };
+          axios.post(baseapi.med_del, para).then((res) => {
+            console.log("res", res);
             this.listLoading = false;
-            //NProgress.done();
             this.$message({
-              message: "删除成功",
-              type: "success",
+              message: res.data,
+              type: "info",
             });
             this.getmeds();
           });
